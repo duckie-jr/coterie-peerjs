@@ -41,7 +41,7 @@
   }
 
   function buildEmbedUrl(videoId) {
-    return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
   }
 
   function buildThumbnailUrl(videoId) {
@@ -482,8 +482,9 @@
     const frame = document.createElement('iframe');
     frame.className    = 'player-frame';
     frame.src          = buildEmbedUrl(item.id);
-    frame.allow        = 'autoplay; fullscreen; picture-in-picture';
+    frame.allow        = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
     frame.allowFullscreen = true;
+    frame.referrerPolicy  = 'no-referrer';
 
     placeholder.style.display = 'none';
     playerArea.insertBefore(frame, nowPlayingBar);
