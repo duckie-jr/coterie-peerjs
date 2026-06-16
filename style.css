@@ -517,7 +517,9 @@ html, body {
   flex: 1;
   width: 100%;
   border: none;
-  background: #fff;
+  background: #111;
+  overflow: hidden;
+  position: relative;
 }
 
 /* ── FILE INPUT STYLE ───────────────────────────────────────── */
