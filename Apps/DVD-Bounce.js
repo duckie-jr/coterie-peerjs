@@ -7,12 +7,17 @@
   const LOGO_H  =  70;
   const COLORS  = ['#ff3b3b', '#3bff6e', '#3b8fff', '#ffee3b', '#ff3bff', '#3bffff', '#ff8c3b', '#c03bff'];
 
+  // Proximity threshold — logo edge within this many px of a screen corner counts as a hit.
+  // Exact-pixel corner hits are mathematically near-impossible with integer velocities,
+  // so we use a small tolerance that still feels precise but is actually reachable.
+  const CORNER_THRESHOLD = 6;
+
   let colorIndex = 2;
   let cornerHits = 0;
   let posX       = 160;
   let posY       = 100;
-  let velX       =   2;
-  let velY       =   2;
+  let velX       = 1.5;   // fractional start so the path avoids the common integer dead-zones
+  let velY       = 1.5;
   let paused     = false;
   let rafId      = null;
 
@@ -206,7 +211,7 @@
 
     <div class="controls">
       <span class="ctrl-label">Speed</span>
-      <input class="speed-range" id="speedRange" type="range" min="1" max="10" value="2" step="1" />
+      <input class="speed-range" id="speedRange" type="range" min="0.5" max="40" value="1.5" step="0.5" />
       <span class="ctrl-label" id="speedLabel">2x</span>
       <button class="pause-btn" id="pauseBtn">Pause</button>
     </div>
@@ -259,7 +264,13 @@
       if (bounceX || bounceY) {
         colorIndex = (colorIndex + 1) % COLORS.length;
         logoEl.style.color = COLORS[colorIndex];
-        if (bounceX && bounceY) onCornerHit();
+
+        // Corner hit: logo is within CORNER_THRESHOLD px of both a horizontal
+        // and a vertical edge. Using proximity rather than exact overlap because
+        // exact-pixel alignment is mathematically near-impossible for most screen sizes.
+        const nearHorizontalEdge = posX <= CORNER_THRESHOLD || posX >= maxX - CORNER_THRESHOLD;
+        const nearVerticalEdge   = posY <= CORNER_THRESHOLD || posY >= maxY - CORNER_THRESHOLD;
+        if (nearHorizontalEdge && nearVerticalEdge) onCornerHit();
       }
 
       logoEl.style.transform = `translate(${posX}px, ${posY}px)`;
@@ -270,7 +281,7 @@
 
   // ── Controls ───────────────────────────────────────────────
   speedRange.addEventListener('input', () => {
-    const newSpeed = parseInt(speedRange.value, 10);
+    const newSpeed = parseFloat(speedRange.value);
     speedLabel.textContent = newSpeed + 'x';
     velX = velX >= 0 ?  newSpeed : -newSpeed;
     velY = velY >= 0 ?  newSpeed : -newSpeed;
