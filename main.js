@@ -187,68 +187,221 @@ function buildAppCard(app) {
 }
 
 // ── APP VIEWER ────────────────────────────────────────────────
-const appViewerEl    = document.getElementById('appViewer');
-const appViewerFrame = document.getElementById('appViewerFrame');
-const appViewerIcon  = document.getElementById('appViewerIcon');
-const appViewerTitle = document.getElementById('appViewerTitle');
+const appViewerEl     = document.getElementById('appViewer');
+const appViewerCanvas = document.getElementById('appViewerCanvas');
+const appViewerIcon   = document.getElementById('appViewerIcon');
+const appViewerTitle  = document.getElementById('appViewerTitle');
 
-function buildAppSrcdoc(appName, jsCode) {
-  const safeJsCode = jsCode.replace(/<\/script/gi, '<\\/script');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${appName}</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, Arial, sans-serif; background: #fff; color: #111; }
-  </style>
-</head>
-<body>
-<script>
-${safeJsCode}
-<\/script>
-</body>
-</html>`;
+/** Cleanup function returned by the currently-running app (null when no app is open). */
+let activeAppCleanup = null;
+
+/**
+ * Rewrites CSS rule selectors so they are scoped under the given container ID.
+ * This prevents injected app styles from bleeding into the FlashDash UI.
+ *
+ * Handles:
+ *  - `body`, `html`, `:root` → replaced with `#containerScopeId`
+ *  - all other selectors    → prefixed with `#containerScopeId `
+ *  - @-rule headers         → left untouched (e.g. @keyframes, @media)
+ *  - keyframe step selectors (from, to, 50%) → left untouched
+ */
+function scopeCssToContainer(cssText, containerScopeId) {
+  return cssText.replace(/([^{}]+)\{/g, (match, selectorGroup) => {
+    const trimmedSelector = selectorGroup.trim();
+
+    if (trimmedSelector.startsWith('@')) return match;
+    if (/^(from|to|[\d.]+%)/.test(trimmedSelector)) return match;
+
+    const prefixedSelector = trimmedSelector
+      .split(',')
+      .map(individualSelector => {
+        const selector = individualSelector.trim();
+        if (selector === 'body' || selector === 'html' || selector === ':root') {
+          return `#${containerScopeId}`;
+        }
+        return `#${containerScopeId} ${selector}`;
+      })
+      .join(', ');
+
+    return `${prefixedSelector} {`;
+  });
 }
 
-function buildLoadingHtml(appName) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;
-         justify-content:center;background:#111;color:#888;font-family:system-ui,sans-serif;gap:14px}
-    .spinner{width:32px;height:32px;border:3px solid #2a2a2a;border-top-color:#52B043;
-             border-radius:50%;animation:spin .7s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .label{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
-  </style></head>
-  <body>
-    <div class="spinner"></div>
-    <div class="label">Loading ${appName}</div>
-  </body></html>`;
+/**
+ * Injects app JS into the given container element and runs it.
+ *
+ * The app receives a proxied `document` where:
+ *   - `document.body` → the container div (apps render here instead of <body>)
+ *   - `document.head.insertAdjacentHTML` → intercepts <style> tags, scopes their
+ *     CSS to the container, and appends them to the real <head> for tracking/cleanup
+ *   - all other document properties pass through to the real document
+ *
+ * Apps also receive tracked wrappers for `setInterval` and `setTimeout` so all
+ * timers are cancelled automatically when the app closes.
+ *
+ * localStorage, fetch, and all other window globals are available natively.
+ *
+ * Returns a cleanup function that removes injected styles, clears timers, and
+ * empties the container.
+ */
+function runAppInContainer(jsCode, containerEl, stableAppId) {
+  const appScopeId    = `fd_app_${Date.now()}`;  // unique per-launch (CSS scope)
+  const storagePrefix = `fd_store_${stableAppId}`; // stable across relaunches (localStorage)
+  containerEl.id = appScopeId;
+  containerEl.innerHTML = '';
+
+  const injectedStyleElements = [];
+  const activeIntervalIds     = [];
+  const activeTimeoutIds      = [];
+
+  const fakeHead = {
+    insertAdjacentHTML(_position, htmlString) {
+      const parser         = new DOMParser();
+      const parsedFragment = parser.parseFromString(htmlString, 'text/html');
+
+      Array.from(parsedFragment.querySelectorAll('style')).forEach(styleEl => {
+        const scopedCss  = scopeCssToContainer(styleEl.textContent, appScopeId);
+        const newStyleEl = document.createElement('style');
+        newStyleEl.textContent      = scopedCss;
+        newStyleEl.dataset.appScope = appScopeId;
+        document.head.appendChild(newStyleEl);
+        injectedStyleElements.push(newStyleEl);
+      });
+    }
+  };
+
+  const appDocument = new Proxy(document, {
+    get(target, prop) {
+      if (prop === 'body') return containerEl;
+      if (prop === 'head') return fakeHead;
+      const value = target[prop];
+      return typeof value === 'function' ? value.bind(target) : value;
+    }
+  });
+
+  const trackedSetInterval = (callback, delay, ...args) => {
+    const intervalId = setInterval(callback, delay, ...args);
+    activeIntervalIds.push(intervalId);
+    return intervalId;
+  };
+
+  const trackedSetTimeout = (callback, delay, ...args) => {
+    const timeoutId = setTimeout(callback, delay, ...args);
+    activeTimeoutIds.push(timeoutId);
+    return timeoutId;
+  };
+
+  /**
+   * Namespaced localStorage API scoped to this specific app.
+   * Keys are prefixed with the stable app ID so multiple apps never clash.
+   * Apps can use this OR the raw `localStorage` global — both work.
+   */
+  const flashDashApi = {
+    storage: {
+      getItem:    (key)        => localStorage.getItem(`${storagePrefix}_${key}`),
+      setItem:    (key, value) => localStorage.setItem(`${storagePrefix}_${key}`, value),
+      removeItem: (key)        => localStorage.removeItem(`${storagePrefix}_${key}`),
+      clear() {
+        const keysToRemove = Object.keys(localStorage)
+          .filter(localStorageKey => localStorageKey.startsWith(`${storagePrefix}_`));
+        keysToRemove.forEach(localStorageKey => localStorage.removeItem(localStorageKey));
+      },
+    },
+  };
+
+  try {
+    // Pass overridden globals as named parameters so app code uses our tracked versions.
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'setInterval', 'setTimeout', 'FlashDash', jsCode)(
+      appDocument,
+      trackedSetInterval,
+      trackedSetTimeout,
+      flashDashApi
+    );
+  } catch (runError) {
+    showAppError(containerEl, runError.message);
+  }
+
+  return function cleanupApp() {
+    injectedStyleElements.forEach(styleEl => styleEl.remove());
+    activeIntervalIds.forEach(id => clearInterval(id));
+    activeTimeoutIds.forEach(id => clearTimeout(id));
+    containerEl.innerHTML = '';
+    containerEl.removeAttribute('id');
+    containerEl.removeAttribute('style');
+  };
 }
 
-function buildErrorHtml(message) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;
-         justify-content:center;background:#111;color:#c44;font-family:system-ui,sans-serif;gap:10px}
-    .title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
-    .detail{font-size:11px;color:#555;max-width:340px;text-align:center;line-height:1.6}
-  </style></head>
-  <body>
-    <div class="title">Failed to load</div>
-    <div class="detail">${message}</div>
-  </body></html>`;
+function showAppLoading(containerEl, appName) {
+  // Ensure the spinner keyframe is in the document exactly once.
+  if (!document.getElementById('fd-spinner-style')) {
+    const spinnerStyleEl = document.createElement('style');
+    spinnerStyleEl.id          = 'fd-spinner-style';
+    spinnerStyleEl.textContent = '@keyframes fd-spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(spinnerStyleEl);
+  }
+
+  containerEl.removeAttribute('id');
+  containerEl.style.cssText = [
+    'height: 100%',
+    'display: flex',
+    'flex-direction: column',
+    'align-items: center',
+    'justify-content: center',
+    'background: #111',
+    'color: #888',
+    'font-family: system-ui, sans-serif',
+    'gap: 14px',
+  ].join(';');
+
+  containerEl.innerHTML = `
+    <div style="
+      width:32px; height:32px;
+      border:3px solid #2a2a2a; border-top-color:#52B043;
+      border-radius:50%; animation:fd-spin .7s linear infinite;
+    "></div>
+    <div style="font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;">
+      Loading ${appName}
+    </div>
+  `;
+}
+
+function showAppError(containerEl, message) {
+  containerEl.removeAttribute('id');
+  containerEl.style.cssText = [
+    'height: 100%',
+    'display: flex',
+    'flex-direction: column',
+    'align-items: center',
+    'justify-content: center',
+    'background: #111',
+    'color: #c44',
+    'font-family: system-ui, sans-serif',
+    'gap: 10px',
+  ].join(';');
+
+  containerEl.innerHTML = `
+    <div style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">
+      Failed to load
+    </div>
+    <div style="font-size:11px; color:#555; max-width:340px; text-align:center; line-height:1.6;">
+      ${message}
+    </div>
+  `;
 }
 
 function openAppViewer(app) {
+  if (activeAppCleanup) {
+    activeAppCleanup();
+    activeAppCleanup = null;
+  }
+
   appViewerIcon.innerHTML    = app.icon;
   appViewerTitle.textContent = app.name;
   appViewerEl.classList.add('app-viewer--open');
-  appViewerFrame.setAttribute('sandbox', 'allow-scripts');
 
   if (app.url) {
-    appViewerFrame.srcdoc = buildLoadingHtml(app.name);
+    showAppLoading(appViewerCanvas, app.name);
 
     fetch(app.url)
       .then(response => {
@@ -256,20 +409,22 @@ function openAppViewer(app) {
         return response.text();
       })
       .then(fetchedJsCode => {
-        appViewerFrame.srcdoc = buildAppSrcdoc(app.name, fetchedJsCode);
+        activeAppCleanup = runAppInContainer(fetchedJsCode, appViewerCanvas, app.id);
       })
       .catch(fetchError => {
-        appViewerFrame.srcdoc = buildErrorHtml(fetchError.message);
+        showAppError(appViewerCanvas, fetchError.message);
       });
   } else {
-    appViewerFrame.srcdoc = buildAppSrcdoc(app.name, app.jsCode);
+    activeAppCleanup = runAppInContainer(app.jsCode, appViewerCanvas, app.id);
   }
 }
 
 function closeAppViewer() {
-  appViewerFrame.removeAttribute('src');
-  appViewerFrame.srcdoc = '';
   appViewerEl.classList.remove('app-viewer--open');
+  if (activeAppCleanup) {
+    activeAppCleanup();
+    activeAppCleanup = null;
+  }
 }
 
 window.closeAppViewer = closeAppViewer;
