@@ -287,6 +287,13 @@
       overflow: hidden;
     }
 
+    .player-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      display: block;
+    }
+
     /* Thumbnail-based preview (replaces iframe — external iframes are blocked by CoderPad CSP) */
     .player-preview {
       flex: 1;
@@ -539,54 +546,22 @@
   function loadVideoInPlayer(index) {
     currentIndex = index;
 
-    const existingPreview = playerArea.querySelector('.player-preview');
-    if (existingPreview) existingPreview.remove();
+    const existingFrame = playerArea.querySelector('.player-frame');
+    if (existingFrame) existingFrame.remove();
 
     const item = playlist[index];
-    const youtubeWatchUrl  = `https://www.youtube.com/watch?v=${item.id}`;
-    const highResThumbnail = `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`;
 
-    const previewEl = document.createElement('div');
-    previewEl.className = 'player-preview';
-
-    const thumbImg = document.createElement('img');
-    thumbImg.className = 'player-preview__thumb';
-    thumbImg.src       = highResThumbnail;
-    thumbImg.alt       = '';
-
-    const overlayEl = document.createElement('div');
-    overlayEl.className = 'player-preview__overlay';
-
-    // Red circle play button — acts as the primary CTA
-    const playLinkEl = document.createElement('a');
-    playLinkEl.className = 'player-preview__play-btn';
-    playLinkEl.href      = youtubeWatchUrl;
-    playLinkEl.target    = '_blank';
-    playLinkEl.rel       = 'noopener noreferrer';
-    playLinkEl.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-      <path d="M8 5v14l11-7z"/>
-    </svg>`;
-
-    // Secondary text link below the play button
-    const openLinkEl = document.createElement('a');
-    openLinkEl.className = 'player-preview__open-link';
-    openLinkEl.href      = youtubeWatchUrl;
-    openLinkEl.target    = '_blank';
-    openLinkEl.rel       = 'noopener noreferrer';
-    openLinkEl.textContent = 'Watch on YouTube ↗';
-
-    const noteEl = document.createElement('div');
-    noteEl.className   = 'player-preview__note';
-    noteEl.textContent = 'Inline playback is blocked by this environment';
-
-    overlayEl.appendChild(playLinkEl);
-    overlayEl.appendChild(openLinkEl);
-    overlayEl.appendChild(noteEl);
-    previewEl.appendChild(thumbImg);
-    previewEl.appendChild(overlayEl);
+    const frame = document.createElement('iframe');
+    frame.className      = 'player-frame';
+    frame.src            = buildEmbedUrl(item.id);
+    frame.title          = 'YouTube video player';
+    frame.frameBorder    = '0';
+    frame.allow          = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allowFullscreen = true;
 
     placeholder.style.display = 'none';
-    playerArea.insertBefore(previewEl, nowPlayingBar);
+    playerArea.insertBefore(frame, nowPlayingBar);
 
     nowPlayingBar.style.display = 'flex';
     nowPlayingTitle.textContent = item.title || item.id;
@@ -598,8 +573,8 @@
   }
 
   function stopPlayer() {
-    const existingPreview = playerArea.querySelector('.player-preview');
-    if (existingPreview) existingPreview.remove();
+    const existingFrame = playerArea.querySelector('.player-frame');
+    if (existingFrame) existingFrame.remove();
     placeholder.style.display = 'flex';
     nowPlayingBar.style.display = 'none';
     currentIndex = -1;
