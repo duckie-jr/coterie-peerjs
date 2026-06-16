@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlashDash</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+
+    <div class="window" id="window">
+
+      <!-- ── Title bar ──────────────────────────────────── -->
+      <div class="title-bar" id="titleBar">
+        <div class="title-brand">
+          <span class="title-icon">💾</span>
+          <span class="title-name" id="titleName">FlashDash</span>
+        </div>
+        <div class="title-controls">
+          <button class="ctrl-btn ctrl-min"  id="minBtn"   title="Minimise">−</button>
+          <button class="ctrl-btn ctrl-close" id="closeBtn" title="Close">✕</button>
+        </div>
+      </div>
+
+      <!-- ── Search ─────────────────────────────────────── -->
+      <div class="search-row">
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input
+            type="search"
+            id="searchInput"
+            class="search-input"
+            placeholder="Search apps..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="search-clear" id="searchClear" hidden>✕</button>
+        </div>
+      </div>
+
+      <!-- ── Two-column body ────────────────────────────── -->
+      <div class="body-cols">
+
+        <!-- Left: dynamic app list -->
+        <div class="col-apps" id="appList">
+
+          <div class="filter-row">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="favorites">★ Faves</button>
+            <button class="filter-btn" data-filter="recent">Recent</button>
+          </div>
+
+          <div class="app-scroll" id="appScroll">
+
+            <div class="no-results" id="noResults">No apps added yet</div>
+
+          </div><!-- /app-scroll -->
+        </div><!-- /col-apps -->
+
+        <!-- Right: static system shortcuts -->
+        <div class="col-system">
+          <div class="sys-group">
+            <button class="sys-btn">
+              <span class="sys-ico">📁</span>
+              <span class="sys-lbl">Documents</span>
+            </button>
+            <button class="sys-btn">
+              <span class="sys-ico">🎵</span>
+              <span class="sys-lbl">Music</span>
+            </button>
+            <button class="sys-btn">
+              <span class="sys-ico">🖼</span>
+              <span class="sys-lbl">Pictures</span>
+            </button>
+            <button class="sys-btn">
+              <span class="sys-ico">⬇</span>
+              <span class="sys-lbl">Downloads</span>
+            </button>
+            <button class="sys-btn">
+              <span class="sys-ico">🎬</span>
+              <span class="sys-lbl">Videos</span>
+            </button>
+          </div>
+          <div class="sys-divider"></div>
+          <div class="sys-group">
+            <a href="../index.html" class="sys-btn">
+              <span class="sys-ico">⚙</span>
+              <span class="sys-lbl">Settings</span>
+            </a>
+            <button class="sys-btn">
+              <span class="sys-ico">❓</span>
+              <span class="sys-lbl">Help</span>
+            </button>
+          </div>
+        </div><!-- /col-system -->
+
+      </div><!-- /body-cols -->
+
+      <!-- ── Status bar ──────────────────────────────────── -->
+      <div class="status-bar">
+        <div class="drive-meter">
+          <div class="meter-labels">
+            <span class="meter-name" id="meterName">MY DRIVE</span>
+            <span class="meter-free" id="meterFree">32 GB free</span>
+          </div>
+          <div class="meter-track">
+            <div class="meter-fill" id="meterFill" style="width: 40%"></div>
+          </div>
+        </div>
+        <div class="status-actions">
+          <button class="status-btn status-eject" id="ejectBtn" title="Eject drive">⏏ Eject</button>
+          <button class="status-btn status-exit"  id="exitBtn"  title="Close launcher">✕ Exit</button>
+        </div>
+      </div>
+
+    </div><!-- /window -->
+
+    <div class="toast" id="toast"></div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
