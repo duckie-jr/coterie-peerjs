@@ -287,11 +287,76 @@
       overflow: hidden;
     }
 
-    .player-frame {
+    /* Thumbnail-based preview (replaces iframe — external iframes are blocked by CoderPad CSP) */
+    .player-preview {
       flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .player-preview__thumb {
+      position: absolute;
+      inset: 0;
       width: 100%;
-      border: none;
-      display: block;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.55;
+    }
+
+    .player-preview__overlay {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      z-index: 1;
+    }
+
+    .player-preview__play-btn {
+      width: 72px;
+      height: 72px;
+      background: rgba(255, 0, 0, 0.9);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+      transition: transform 0.15s, background 0.15s;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .player-preview__play-btn:hover {
+      background: #ff0000;
+      transform: scale(1.08);
+    }
+
+    .player-preview__open-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #e8e8e8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 12px;
+      font-family: inherit;
+      text-decoration: none;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .player-preview__open-link:hover {
+      background: rgba(255, 0, 0, 0.25);
+      border-color: rgba(255, 0, 0, 0.5);
+    }
+
+    .player-preview__note {
+      font-size: 10px;
+      color: #3a3a3a;
+      letter-spacing: 0.3px;
     }
 
     /* Placeholder when nothing is playing */
@@ -474,20 +539,54 @@
   function loadVideoInPlayer(index) {
     currentIndex = index;
 
-    const existingFrame = playerArea.querySelector('.player-frame');
-    if (existingFrame) existingFrame.remove();
+    const existingPreview = playerArea.querySelector('.player-preview');
+    if (existingPreview) existingPreview.remove();
 
     const item = playlist[index];
+    const youtubeWatchUrl  = `https://www.youtube.com/watch?v=${item.id}`;
+    const highResThumbnail = `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`;
 
-    const frame = document.createElement('iframe');
-    frame.className    = 'player-frame';
-    frame.src          = buildEmbedUrl(item.id);
-    frame.allow        = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
-    frame.allowFullscreen = true;
-    frame.referrerPolicy  = 'no-referrer';
+    const previewEl = document.createElement('div');
+    previewEl.className = 'player-preview';
+
+    const thumbImg = document.createElement('img');
+    thumbImg.className = 'player-preview__thumb';
+    thumbImg.src       = highResThumbnail;
+    thumbImg.alt       = '';
+
+    const overlayEl = document.createElement('div');
+    overlayEl.className = 'player-preview__overlay';
+
+    // Red circle play button — acts as the primary CTA
+    const playLinkEl = document.createElement('a');
+    playLinkEl.className = 'player-preview__play-btn';
+    playLinkEl.href      = youtubeWatchUrl;
+    playLinkEl.target    = '_blank';
+    playLinkEl.rel       = 'noopener noreferrer';
+    playLinkEl.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+      <path d="M8 5v14l11-7z"/>
+    </svg>`;
+
+    // Secondary text link below the play button
+    const openLinkEl = document.createElement('a');
+    openLinkEl.className = 'player-preview__open-link';
+    openLinkEl.href      = youtubeWatchUrl;
+    openLinkEl.target    = '_blank';
+    openLinkEl.rel       = 'noopener noreferrer';
+    openLinkEl.textContent = 'Watch on YouTube ↗';
+
+    const noteEl = document.createElement('div');
+    noteEl.className   = 'player-preview__note';
+    noteEl.textContent = 'Inline playback is blocked by this environment';
+
+    overlayEl.appendChild(playLinkEl);
+    overlayEl.appendChild(openLinkEl);
+    overlayEl.appendChild(noteEl);
+    previewEl.appendChild(thumbImg);
+    previewEl.appendChild(overlayEl);
 
     placeholder.style.display = 'none';
-    playerArea.insertBefore(frame, nowPlayingBar);
+    playerArea.insertBefore(previewEl, nowPlayingBar);
 
     nowPlayingBar.style.display = 'flex';
     nowPlayingTitle.textContent = item.title || item.id;
@@ -499,8 +598,8 @@
   }
 
   function stopPlayer() {
-    const existingFrame = playerArea.querySelector('.player-frame');
-    if (existingFrame) existingFrame.remove();
+    const existingPreview = playerArea.querySelector('.player-preview');
+    if (existingPreview) existingPreview.remove();
     placeholder.style.display = 'flex';
     nowPlayingBar.style.display = 'none';
     currentIndex = -1;
