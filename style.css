@@ -558,10 +558,12 @@ html, body {
 
 .app-viewer__frame {
   flex: 1;
+  min-height: 0;      /* prevent flex item from overflowing its parent */
   width: 100%;
+  height: 100%;       /* gives child percentage heights a reference to resolve against */
   border: none;
   background: #111;
-  overflow: auto;
+  overflow: hidden;   /* apps manage their own scroll internally */
   position: relative;
 }
 
