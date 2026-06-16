@@ -11,10 +11,17 @@
   <!-- ── BLADE NAV ─────────────────────────────────────────── -->
   <nav class="blades" id="blades">
     <button class="blade blade--active" data-tab="home">
-      <span class="blade__ring"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg></span>
+      <span class="blade__icon">
+        <!-- house icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><polyline points="9 21 9 13 15 13 15 21"/></svg>
+      </span>
       <span class="blade__label">Home</span>
     </button>
     <button class="blade" data-tab="apps">
+      <span class="blade__icon">
+        <!-- grid icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </span>
       <span class="blade__label">Apps</span>
     </button>
   </nav>
@@ -22,6 +29,7 @@
   <!-- ── STATUS BAR ────────────────────────────────────────── -->
   <div class="statusbar">
     <span class="statusbar__tag">FlashDash</span>
+    <span class="statusbar__date" id="statusDate"></span>
     <span class="statusbar__clock" id="clock">00:00</span>
   </div>
 
@@ -39,8 +47,13 @@
         <div class="spotlight__art"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7z"/></svg></div>
       </div>
 
+      <div class="channel" id="recentSection" hidden>
+        <div class="channel__label">Recently Opened</div>
+        <div class="channel__row" id="recentRow"></div>
+      </div>
+
       <div class="channel" id="quickSection">
-        <div class="channel__label">Quick Access</div>
+        <div class="channel__label">All Apps</div>
         <div class="channel__row" id="quickRow">
         </div>
       </div>
